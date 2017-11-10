@@ -4,3 +4,6 @@ object proto clone
 array proto shims / polyfills
 
 improve sizzle => module
+
+sizzle create / find
+h sizzle

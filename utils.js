@@ -702,7 +702,7 @@ function cssAst (css) {
 
             //il n'y a peut être pas de combinator
             // on extrait le selecteur e.g '#div[a=b]:pseudo'
-            selector = selectors.substring(cursor);
+            selector = selectors.substring(cursor, combinatorInfos.index);
             selectorInfos = regSelector.exec(selector);
             // selectorInfos[1] = possible tag
             // selectorInfos[2] = id|class selector

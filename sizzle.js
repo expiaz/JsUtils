@@ -53,12 +53,16 @@ var Token = (function () {
     return Token;
 })();
 
+/**
+ * @param {string} css selector(s)
+ * @return {Token[]} an abstract syntax tree of css selector(s)
+ */
 function cssAst (css) {
 
     // pour enlever les blancs consécutifs type ' > '
     var regBlanks = /\s*([+~> ,])\s*/g;
     // pour parser les selecteurs e.g 'tag#id[attr=value]:pseudo'
-    var regSelector = /\s*(\w+)?(?:([.#])(\w[\w\d-_.]*))?(?:\[(\w[\w\d-_]*)(?:="?([^\]"]+)"?)?\])?(?:::?(\w[\w\d-]*))?\s*/;
+    var regSelector = /\s*([\w-]+)?(?:([.#])(\w[\w\d-_.]*))?(?:\[(\w[\w\d-_]*)(?:="?([^\]"]+)"?)?\])?(?:::?(\w[\w\d-]*))?\s*/;
     // pour parser les expression e.g 'selector > selector + selector'
     var regCombinator = /([+~> ])/g;
 
@@ -92,7 +96,7 @@ function cssAst (css) {
 
             //il n'y a peut être pas de combinator
             // on extrait le selecteur e.g '#div[a=b]:pseudo'
-            selector = selectors.substring(cursor);
+            selector = selectors.substring(cursor, combinatorInfos.index);
             selectorInfos = regSelector.exec(selector);
             // selectorInfos[1] = possible tag
             // selectorInfos[2] = id|class selector
@@ -100,12 +104,7 @@ function cssAst (css) {
             // selectorInfos[4] = attribute
             // selectorInfos[5] = attribute value
             // selectorInfos[6] = pseudo-element
-            if(selectorInfos[3]){
-                token.tag = selectorInfos[1];
-                token.setQualifier(selectorInfos[2], selectorInfos[3]);
-            } else {
-                token.setQualifier('', selectorInfos[1]);
-            }
+            token.tag = selectorInfos[1];
             token.setQualifier(selectorInfos[2], selectorInfos[3]);
             token.attribute.name = selectorInfos[4];
             token.attribute.value = selectorInfos[5];
@@ -128,18 +127,13 @@ function cssAst (css) {
         // on extrait le selecteur e.g '#div[a=b]:pseudo'
         selector = selectors.substring(cursor);
         selectorInfos = regSelector.exec(selector);
-        // selectorInfos[1] = possible tag
+        // selectorInfos[1] = tag
         // selectorInfos[2] = id|class selector
         // selectorInfos[3] = qualifier(s) for id|class
         // selectorInfos[4] = attribute
         // selectorInfos[5] = attribute value
         // selectorInfos[6] = pseudo-element
-        if(selectorInfos[3]){
-            token.tag = selectorInfos[1];
-            token.setQualifier(selectorInfos[2], selectorInfos[3]);
-        } else {
-            token.setQualifier('', selectorInfos[1]);
-        }
+        token.tag = selectorInfos[1];
         token.setQualifier(selectorInfos[2], selectorInfos[3]);
         token.attribute.name = selectorInfos[4];
         token.attribute.value = selectorInfos[5];
@@ -156,12 +150,6 @@ function cssAst (css) {
         return ast;
 
     }, []);
-}
-
-function toCamelCase(str) {
-    return str.replace(/([\w\d])[_-]([\w\d])/g, function (fullMatch, before, after) {
-        return before + after.toUpperCase();
-    })
 }
 
 Array.prototype.deduplicate = (
@@ -188,10 +176,44 @@ Array.prototype.plain = (
             return plain;
         }, []);
     }
-)
+);
 
+String.prototype.toCamelCase = (
+    String.prototype.toCamelCase
+    || function () {
+        return this.replace(/([\w\d])[_-]([\w\d])/g, function (fullMatch, before, after) {
+            return before + after.toUpperCase();
+        });
+    }
+);
+
+HTMLElement.prototype.addNodeBefore = (
+    HTMLElement.prototype.addNodeBefore
+    || function (node) {
+        this.parentNode.insertBefore(node, this);
+    }
+);
+
+HTMLElement.prototype.addNodeAfter = (
+    HTMLElement.prototype.addNodeAfter
+    || function (node) {
+        if(this.nextSibling) {
+            this.nextSibling.addNodeBefore(node);
+        } else {
+            this.parentNode.appendChild(node);
+        }
+    }
+);
+
+/**
+ * sort node siblings (horizontal) and/or childs (vertical) depending on their nesting from their parent and return them
+ * @param {HTMLElement} node
+ * @param {number|undefined} vnesting
+ * @param {number|undefined} hnesting
+ * @return {HTMLElement[]}
+ */
 function restrict(node, vnesting, hnesting){
-    vnesting = vnesting || -1;
+    vnesting = vnesting || 0;
     hnesting = hnesting || 0;
 
     var nodes;
@@ -219,7 +241,7 @@ function restrict(node, vnesting, hnesting){
     nodes = roots && nodes.slice(roots) || nodes;
 
     // deduplicate
-    return nodes.deduplicate();
+    return nodes;
 }
 
 /**
@@ -229,7 +251,7 @@ function restrict(node, vnesting, hnesting){
 function getEltsByClass(nodes, search){
 
     if(typeof search === 'string'){
-        search = new RegExp(search);
+        search = new RegExp('^' + search + '$');
     }
     if(! search instanceof RegExp){
         return [];
@@ -246,7 +268,7 @@ function getEltsByClass(nodes, search){
  */
 function getEltsByTag(nodes, search){
     if(typeof search === 'string'){
-        search = new RegExp(search);
+        search = new RegExp('^' + search + '$');
     }
     if(! search instanceof RegExp){
         return [];
@@ -263,7 +285,7 @@ function getEltsByTag(nodes, search){
  */
 function getEltsById(nodes, search){
     if(typeof search === 'string'){
-        search = new RegExp(search);
+        search = new RegExp('^' + search + '$');
     }
     if(! search instanceof RegExp){
         return [];
@@ -277,13 +299,14 @@ function getEltsById(nodes, search){
 /**
  * @param {HTMLElement[]} nodes
  * @param {RegExp|string} search
+ * @param {RegExp|string} value
  */
 function getEltsByAttr(nodes, search , value){
     if(typeof search === 'string'){
-        search = new RegExp(search);
+        search = new RegExp('^' + search + '$');
     }
     if(typeof value === 'string'){
-        value = new RegExp(value);
+        value = new RegExp('^' + value + '$');
     }
     if(! search instanceof RegExp){
         return [];
@@ -298,7 +321,7 @@ function getEltsByAttr(nodes, search , value){
             if(! attribute.name.match(search)){
                 return false;
             }
-            if(value && ! attribute.value.match(value)){
+            if(value instanceof RegExp && ! attribute.value.match(value)){
                 return false;
             }
 
@@ -308,15 +331,14 @@ function getEltsByAttr(nodes, search , value){
 }
 
 /**
- *
- * @param {HTMLElement} node
- * @param string selector
- * @return {HTMLElement[]}
+ * @param {HTMLElement[]} nodes
+ * @param {string} selector
+ * @return {HTMLElement|null}
  */
 function getPseudoSelector(nodes, selector) {
 
     if(!nodes.length){
-        return nodes;
+        return null;
     }
 
     switch (selector) {
@@ -329,26 +351,25 @@ function getPseudoSelector(nodes, selector) {
         default:
             var desc;
             if(desc = selector.match(/^nth-child\((\d+)\)$/)){
-                return nodes[desc[1]] || [];
+                return nodes[desc[1]] || null;
             }
-    }
 
-    // fallback to HTMLElement props
-    var node = nodes[0];
-    selector = toCamelCase(selector);
-    if(selector in node){
-        return node[selector];
+            return null;
     }
-
-    return null;
 }
 
 /**
- *
+ * find HTMLElements corresponding to given token in a nodeList
  * @param {Token} token
  * @param {HTMLElement[]} nodes
+ * @param {string} combinator
+ * @return {HTMLElement[]} nodes the nodes that correspond at token
  */
 function findToken(token, nodes, combinator) {
+    if(!nodes.length){
+        return nodes;
+    }
+
     if(combinator){
         var vnesting = void 0, hnesting = void 0;
         switch (combinator){
@@ -371,7 +392,7 @@ function findToken(token, nodes, combinator) {
         }
         nodes = nodes.reduce(function (acc, node) {
             return acc.concat(restrict(node, vnesting, hnesting));
-        }, []);
+        }, []).deduplicate();
     }
 
     if(token.haveTag()) {
@@ -386,8 +407,6 @@ function findToken(token, nodes, combinator) {
             case '#':
                 nodes = getEltsById(nodes, token.qualifier.value[0]);
                 break;
-            case '':
-                nodes = getEltsByTag(nodes, token.qualifier.value[0]);
         }
         nodes = token.qualifier.value.slice(1).reduce(function (acc, qualifier) {
             return getEltsByClass(nodes, qualifier);
@@ -399,7 +418,12 @@ function findToken(token, nodes, combinator) {
     }
 
     if(token.havePseudo()){
-        nodes = getPseudoSelector(nodes, token.pseudo);
+        var pseudo = getPseudoSelector(nodes, token.pseudo);
+        if(pseudo !== null) {
+            nodes = [pseudo];
+        } else {
+            nodes = [];
+        }
     }
 
     if(token.haveCombinator()){
@@ -410,17 +434,96 @@ function findToken(token, nodes, combinator) {
 }
 
 /**
- * @param {Token[]} ast
- * @param {HTMLElement} context
+ *
+ * @param {string} selector
+ * @param {HTMLElement|HTMLElement[]|undefined} context
+ * @return {HTMLElement[]}
  */
-function findAst(ast, context) {
-    context = context || document;
-    return ast.map(function (token) {
-        return findToken(token, Array.prototype.slice.call(context.childNodes), ' ');
-    }).plain().deduplicate();
+function find(selector, context){
+    context = Array.isArray(context) ? context : [context || document];
+    return cssAst(selector).map(function (token) {
+        return findToken(token, context, ' ');
+    }).plain();
 }
 
-function $(selector, context){
-    context = context || document;
-    return findAst(cssAst(selector), context);
+/**
+ *
+ * @param {Token} token
+ * @param {HTMLElement} root la node utilisée pour les manipulations dom en tant que parent
+ * @param {'vertical'|'horizontal'|undefined} appendMode le mode d'ajout de la node vertical|horizontal
+ * @return {HTMLElement}
+ */
+function createFromToken(token, root, appendMode) {
+    if(! token.haveTag()){
+        throw new Error("Sizzle::create tag missing for node creation");
+    }
+
+    appendMode = appendMode || 'vertical';
+
+    var node = document.createElement(token.tag);
+
+    /*
+    resolution des manipulations dans l'enfant
+    obligatoire car le parent n'a pas la possibilite de modifier
+    ses siblings si ce n'est en passant par son parent, ainsi pour
+    assure l'existance d'un parent, nosu realisons la modification
+    dans l'enfant, lié à son parent
+     */
+    switch (appendMode) {
+        case 'vertical':
+            root.appendChild(node);
+            break;
+
+        case 'horizontal':
+            root.addNodeAfter(node);
+            break;
+    }
+
+    if(token.haveCombinator()) {
+        switch(token.combinator.type) {
+            case '>':
+            case ' ':
+                createFromToken(token.combinator.to, node, 'vertical');
+                break;
+
+            case '+':
+            case '~':
+                createFromToken(token.combinator.to, node, 'horizontal');
+                break;
+        }
+    }
+
+    if(token.haveQualifier()){
+        switch (token.qualifier.type) {
+            case '.':
+                node.className = token.qualifier.value[0];
+                break;
+            case '#':
+                node.id = token.qualifier.value[0];
+                break;
+        }
+        if(token.qualifier.value.length > 1){
+            node.className +=  ' ' + token.qualifier.value.slice(1).join(' ');
+        }
+
+    }
+
+    if(token.haveAttribute()){
+        node.setAttribute(token.attribute.name, token.attribute.value);
+    }
+
+    return node;
+}
+
+/**
+ *
+ * @param {string} selector css
+ * @return {HTMLElement[]} created nodes
+ */
+function create(selector) {
+    var root = document.createElement('div');
+    cssAst(selector).forEach(function (token) {
+        return createFromToken(token, root);
+    });
+    return Array.prototype.slice.call(root.childNodes);
 }
