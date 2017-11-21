@@ -18,7 +18,6 @@ var ast = (function () {
         QUOTE: '\'',
         DBL_QUOTE: '"'
     };
-
     var END = '';
     
     var Token = (function () {
@@ -72,7 +71,7 @@ var ast = (function () {
 
         return Token;
     })();
-    
+
     var Cursor = (function () {
 
         function Cursor(input, position) {
@@ -332,5 +331,4 @@ var ast = (function () {
     }
     
     return ast;
-    
 })();

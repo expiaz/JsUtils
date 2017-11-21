@@ -10,7 +10,7 @@ var h = (function(){
 
     function getData(data) {
         if (dataSupport) {
-            return this.dataset[attribute];
+            return this.dataset[data];
         }
         return parent.getAttribute.call(this, 'data-' + data);
     }
@@ -28,7 +28,8 @@ var h = (function(){
         paramObj = {},
         p, pcs, cls, name, node, id,
         parent = HTMLElement.prototype,
-        dataSupport = 'dataset' in parent;
+        dataSupport = 'dataset' in parent,
+        classListSupport = 'classList' in parent;
 
     /**
      * hyperscript (jsx) helper function to write dom manipulations
@@ -39,6 +40,7 @@ var h = (function(){
      */
     function h(selector, attrs, childs) {
         childs = childs || paramArr,
+            childs = Array.isArray(childs) ? childs : [childs],
             attrs = attrs || paramObj,
             pcs = selector.split('.'),
             cls = pcs.length > 1 && pcs.slice(1) || paramArr,
@@ -84,14 +86,14 @@ var h = (function(){
             parent.appendChild.call(this, child);
         };
 
-        if(id.length) node.id = id;
-        if(cls.length) node.className = cls.join(' ');
-
         for(p in attrs.props || {}) node.setAttribute(p, attrs.props[p]);
         for(p in attrs.data || {}) node.setData(p, attrs.data[p]);
         for(p in attrs.context || {}) node.setContext(p, attrs.context[p]);
         for(p in attrs.style || {}) node.style[p] = attrs.style[p];
         for(p in attrs.on || {}) typeof attrs.on[p] === 'function' && node.addEventListener(p, attrs.on[p]);
+
+        if(id.length) node.id = id;
+        if(cls.length) node.className = (node.className.length ? node.className + ' ' : '') + cls.join(' ');
 
         for(var i = 0; i < childs.length; i++) node.appendChild(childs[i]);
 
