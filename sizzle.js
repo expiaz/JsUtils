@@ -4,42 +4,36 @@ var Token = (function () {
         // 'div'
         this.tag = void 0;
         // '.class'
-        this.qualifier = {
-            type: void 0, // '.'
-            value: [] // 'class'
-        };
-        this.attribute = {
+        this.id = void 0;
+        this.cls = [];
+        /*
+        {
             name: '', // 'attr'
             value: void 0 // 'value'
-        };
-        this.pseudo = void 0; // 'first-child'
+        }
+         */
+        this.attributes = [];
+        this.pseudo = void 0; // 'first-child' / not(complex)
         this.combinator = {
             type: void 0, // '>'
             to: void 0 // Token('a.e')
         };
     };
 
-    Token.prototype.setQualifier = function (type, qualifier) {
-        if(!qualifier) {
-            return;
-        }
-
-        type = type || '';
-        this.qualifier.type = type;
-        // on peut chainer les classes pour préciser
-        this.qualifier.value = qualifier.split('.');
-    };
-
     Token.prototype.haveTag = function () {
         return !!this.tag;
     };
 
-    Token.prototype.haveQualifier = function () {
-        return typeof this.qualifier.type === 'string';
+    Token.prototype.haveId = function () {
+        return !!this.id;
     };
 
-    Token.prototype.haveAttribute = function () {
-        return !!this.attribute.name;
+    Token.prototype.haveClasses = function () {
+        return !!this.cls.length;
+    };
+
+    Token.prototype.haveAttributes = function () {
+        return !!this.attributes.length;
     };
 
     Token.prototype.havePseudo = function () {

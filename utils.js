@@ -40,10 +40,10 @@ var LinkedList = (function () {
      * @param {Array|undefined} base
      * @constructor
      */
-    function LinkedList(base){
+    function LinkedList(base) {
         this.head = void 0;
         this.queue = void 0;
-        Array.prototype.forEach.call(base || [], function (item) {
+        Array.prototype.forEach.call(base || [], function (item) {
             this.add(item);
         }.bind(this));
     }
@@ -67,7 +67,7 @@ var LinkedList = (function () {
     })();
 
     LinkedList.prototype.add = function (item) {
-        if(! this.head){
+        if (!this.head) {
             this.head = this.queue = new this.Entry(item);
         } else {
             this.queue = this.queue.next = new this.Entry(item);
@@ -106,11 +106,13 @@ var Sizzle = (function () {
             TILDE: '~',
             SPACE: ' ',
 
-            COMMAS: ','
+            COMMAS: ',',
+
+            QUOTE: '\'',
+            DBL_QUOTE: '"'
         };
+
         var END = '';
-        var wordReg = /\w/;
-        var alphaReg = /[\w\d]/;
 
         function Parser() {
 
@@ -119,56 +121,42 @@ var Sizzle = (function () {
         Parser.prototype.Token = (function () {
             function Token() {
                 // ex with div.class[attr=value]::first-child > a.e
-
                 // 'div'
                 this.tag = void 0;
-
                 // '.class'
-                this.qualifier = {
-                    type: void 0, // '.'
-                    value: [] // 'class'
-                };
-
-                this.attribute = {
+                this.id = void 0;
+                this.cls = [];
+                /*
+                {
                     name: '', // 'attr'
                     value: void 0 // 'value'
-                };
-                this.pseudo = void 0; // 'first-child'
+                }
+                 */
+                this.attributes = [];
+                this.pseudo = {
+                    name: void 0,
+                    value: void 0
+                }; // 'first-child' / not(complex)
                 this.combinator = {
                     type: void 0, // '>'
                     to: void 0 // Token('a.e')
                 };
-            };
-
-            Token.prototype.setQualifier = function (type, qualifier) {
-                if(!qualifier) {
-                    return;
-                }
-
-                type = type || '';
-                this.qualifier.type = type;
-                // si c'est une classe ou un tag, alors on peut chainer les classes pour préciser
-                if(type === '.' || type === ''){
-                    this.qualifier.value = qualifier.split('.');
-                } else {
-                    this.qualifier.value = [qualifier];
-                }
-            };
+            }
 
             Token.prototype.haveTag = function () {
                 return !!this.tag;
             };
 
-            Token.prototype.haveQualifier = function () {
-                return !!this.qualifier.type;
+            Token.prototype.haveId = function () {
+                return !!this.id;
             };
 
-            Token.prototype.haveWord = function () {
-                return !!this.word;
+            Token.prototype.haveClasses = function () {
+                return !!this.cls.length;
             };
 
-            Token.prototype.haveAttribute = function () {
-                return !!this.attribute.name;
+            Token.prototype.haveAttributes = function () {
+                return !!this.attributes.length;
             };
 
             Token.prototype.havePseudo = function () {
@@ -191,7 +179,7 @@ var Sizzle = (function () {
             }
 
             Cursor.prototype.isEnd = function () {
-                return this.now() === END;
+                return this.position < this.input.length;
             };
 
             /**
@@ -239,46 +227,6 @@ var Sizzle = (function () {
 
         Parser.prototype.parse = function (css) {
 
-            /*// types de token
-            var tokenType = {
-                qualifier: {
-                    TYPE: '',
-                    ID: '#',
-                    CLS: '.',
-                },
-
-                ATTR: '[',
-                PSEUDO: ':',
-
-                combinator: {
-                    CARET: '>',
-                    PLUS: '+',
-                    TILDE: '~',
-                    SPACE: ' ',
-                },
-
-                delimiter: {
-                    COMMAS: ','
-                }
-            };
-
-            var regSelector = new RegExp(
-                '\\s*([' +
-                Object.values(tokenType.qualifier).join('') +
-                '])?(\\w[\\w\\d]*)?(?:\\[(\\w[^=]*)(?:=(\\w[^\\]]*))?\\])?(?::(\\w[\\w\\d-]*))?\\s*'
-            );
-            var regCombinator = new RegExp(
-                '\\s*([' +
-                Object.values(tokenType.combinator).join('') +
-                '])\\s*',
-                'g'
-            );
-            var regDelimiter = new RegExp(
-                '[' + Object.values(tokenType.delimiter).join('') + ']'
-            );
-
-            var expression = css.split(regDelimiter);*/
-
             // pour enlever les blancs consécutifs type ' > '
             var regBlanks = /\s*([+~> ,])\s*/g;
             // pour parser les selecteurs e.g 'tag#id[attr=value]:pseudo'
@@ -311,7 +259,7 @@ var Sizzle = (function () {
                 var head = token;
 
                 // pour chaque selecteur combiné e.g 'div > a ~ article' en fait 3
-                while(combinatorInfos = regCombinator.exec(selectors)){
+                while (combinatorInfos = regCombinator.exec(selectors)) {
                     // combinatorInfos[1] = combinator type
                     token.combinator.type = combinatorInfos[1];
 
@@ -331,7 +279,7 @@ var Sizzle = (function () {
                     token.attribute.value = selectorInfos[5];
                     token.pseudo = selectorInfos[6];
 
-                    if(pendingCombinator){
+                    if (pendingCombinator) {
                         // un selecteur attendait son selecteur combiné e.g 'a > b' nous sommes b
                         pendingCombinator.combinator.to = token;
                     }
@@ -361,7 +309,7 @@ var Sizzle = (function () {
                 token.pseudo = selectorInfos[6];
 
                 // il n'y a plus de combinator mais celui d'avant attend toujours le siens 'a > b' pending a attend b, nous allons recup b
-                if(pendingCombinator){
+                if (pendingCombinator) {
                     pendingCombinator.combinator.to = token;
                 }
 
@@ -502,6 +450,118 @@ var Sizzle = (function () {
             return ast;*/
         };
 
+        Parser.prototype.fastAst = function (selector) {
+            var pcs = selector.split('.'),
+                t = new Token();
+
+            t.cls = pcs.length > 1 && pcs.slice(1) || [],
+                pcs = pcs[0].split('#'),
+                t.name = pcs[0] || void 0,
+                t.id = pcs[1] || void 0;
+
+            return t;
+        };
+
+        Parser.prototype.ast = function () {
+
+            var token = new this.Token, attr, self = this, stack = [], collect, pending = void 0, ast = [];
+
+            token.tag = this.collect(this.isTag);
+
+            if (this.cursor.now() === '#') {
+                this.cursor.move();
+                token.id = this.collect(this.isQualifier());
+            } else if (this.cursor.now() === '.') {
+                this.cursor.move();
+                token.cls = this.collect(function (char) {
+                    return self.isQualifier(char) || char === '.';
+                }).split('.');
+            }
+
+            while (this.cursor.now() === '[') {
+                attr = {};
+                attr.name = this.collect(this.isAlpha);
+                if (this.cursor.now() === '!' && this.cursor.next() === '=') {
+                    attr.type = 'NOT';
+                    this.cursor.move(2);
+                } else if (this.cursor.now() === '=') {
+                    attr.type = 'EQU';
+                    this.cursor.move();
+                } else {
+                    attr.type = 'NONE';
+                }
+                if(this.cursor.now() === '"' || this.cursor.now() === '\'') {
+                    pending = this.cursor.now();
+                    this.cursor.move();
+                }
+                attr.value = this.collect(this.isAlpha);
+                if(pending){
+                    if(this.cursor.now() !== pending) {
+                        throw new Error("Malformed selector at " + this.cursor.position + " expected " + pending + " got '" + this.cursor.now() + "'");
+                    }
+                    this.cursor.move();
+                    pending = void 0;
+                }
+                if (this.cursor.now() !== ']') {
+                    throw new Error("Malformed selector at " + this.cursor.position + " expected ']' got '" + this.cursor.now() + "'");
+                }
+                token.attributes.push(attr);
+                // get over ']'
+                this.cursor.move();
+            }
+
+            if (this.cursor.now() === ':') {
+                this.cursor.move();
+                if (this.cursor.now() === ':') {
+                    this.cursor.move();
+                }
+                token.pseudo.name = this.collect(this.isQualifier);
+
+                if (this.cursor.now() === '(') {
+                    this.cursor.move();
+                    stack.push(true);
+                    collect = '';
+                    this.collect(function (char) {
+                        if (char === '(') stack.push(true);
+                        else if (char === ')') stack.pop();
+                        collect += char;
+                        return !!stack.length;
+                    });
+                    if (stack.length) {
+                        throw new Error("Malformed selector at " + this.cursor.position + " expected ')' got EOF");
+                    }
+                    token.pseudo.value = this.ast(collect)[0];
+                }
+            }
+
+            this.collect(this.isBlank);
+
+            if (this.isCombinator(this.cursor.now()) || (!this.cursor.isEnd() && this.cursor.prev() === ' ')) {
+                // combinators '>~+ '
+                token.combinator.type = this.cursor.now();
+                this.cursor.move();
+                if(this.cursor.isEnd()) {
+                    throw new Error("Malformed selector at " + this.cursor.position +
+                        " expected selector after " + token.combinator.type + " got EOF");
+                }
+                token.combinator.to = this.ast(
+                    this.collect(function (char) {
+                        return !self.isCombinator(char) && !self.isDelimiter(char);
+                    })
+                );
+            }
+
+            if(this.isDelimiter(this.cursor.now())) {
+                ast.push(token);
+                // ','
+                ast.push(this.collect(function (char) {
+                    return !self.isCombinator(char);
+                }));
+            }
+
+            return ast;
+        };
+
         /**
          * collects char while truthlyCb returns true
          * @param truthlyCb
@@ -509,96 +569,61 @@ var Sizzle = (function () {
          */
         Parser.prototype.collect = function (truthlyCb) {
             var collected = '';
-            while (truthlyCb.call(this, this.cursor.now())) {
+            while (!this.cursor.isEnd() && truthlyCb.call(this, this.cursor.now())) {
                 collected += this.cursor.now();
                 this.cursor.move();
             }
             return collected;
         };
 
-        /**
-         * @param {string} char
-         * @returns {boolean}
-         */
+        Parser.prototype.isBlank = function (char) {
+            return char === ' ' || char === '\n' || char === '\t' || char === '\r';
+        };
+
+        Parser.prototype.isLower = function (char) {
+            // return char.charCodeAt(0) >= 97 && char.charCodeAt(0) <= 122;
+            return char >= 'a' && char <= 'z';
+        };
+
+        Parser.prototype.isUpper = function (char) {
+            // return char.charCodeAt(0) >= 65 && char.charCodeAt(0) <= 90;
+            return char >= 'A' && char <= 'Z';
+        };
+
         Parser.prototype.isWord = function (char) {
-            char = char || this.cursor.now();
-            return wordReg.test(char);
+            return isUpper(char) || isLower(char);
         };
 
-        /**
-         * @param char
-         * @returns {boolean}
-         */
+        Parser.prototype.isDigit = function (char) {
+            // return char.charCodeAt(0) <= 48 && char.charCodeAt(0) <= 57;
+            return char >= '0' && char <= '9';
+        };
+
         Parser.prototype.isAlpha = function (char) {
-            char = char || this.cursor.now();
-            return alphaReg.test(char);
+            return isDigit(char) || isWord(char);
         };
 
-        /**
-         * @returns {boolean}
-         */
-        Parser.prototype.isQualifier = function () {
-            switch (this.cursor.now()) {
-                case tokenType.TYPE:
-                case tokenType.CLS:
-                case tokenType.ID:
-                    return this.isWord(this.cursor.next());
-                default:
-                    return false;
-            }
-        }
-
-        /**
-         * @returns {string}
-         */
-        Parser.prototype.getQualifier = function () {
-            switch (this.cursor.now()) {
-                default:
-                case tokenType.TYPE:
-                    return tokenType.TYPE;
-                case tokenType.CLS:
-                    return tokenType.CLS;
-                case tokenType.ID:
-                    return tokenType.ID;
-            }
+        Parser.prototype.isTag = function (char) {
+            return this.isWord(char) || char === '-';
         };
 
-        /**
-         * [attr] | [attr=value]
-         * @returns {boolean}
-         */
-        Parser.prototype.isAttribute = function () {
-            return this.cursor.now() === tokenType.ATTR && wordReg.test(this.cursor.next());
-        };
-
-        // :first-child
-        Parser.prototype.isPseudo = function () {
-            return this.cursor.now() === tokenType.PSEUDO && wordReg.test(this.cursor.next());
+        Parser.prototype.isQualifier = function (char) {
+            return this.isAlpha(char) || char === '-' || char === '_';
         };
 
         // 'combinator' ' combinator'
-        Parser.prototype.isCombinator = function () {
-            return (
-                this.cursor.now() === tokenType.CARET
-                || this.cursor.now() === tokenType.PLUS
-                || this.cursor.now() === tokenType.TILDE
-                || this.cursor.now() === tokenType.SPACE
-            ) || (
-                this.cursor.now() === tokenType.SPACE
-                && (
-                    this.cursor.next() === tokenType.CARET
-                    || this.cursor.next() === tokenType.PLUS
-                    || this.cursor.next() === tokenType.TILDE
-                    || this.cursor.next() === tokenType.SPACE
-                )
-            );
+        Parser.prototype.isCombinator = function (char) {
+            return char === tokenType.CARET
+                || char === tokenType.PLUS
+                || char === tokenType.TILDE
+                || char === tokenType.SPACE;
         };
 
         /**
          * @returns {boolean}
          */
-        Parser.prototype.isDelimiter = function () {
-            return this.cursor.now() === tokenType.COMMAS && this.cursor.next() !== END;
+        Parser.prototype.isDelimiter = function (char) {
+            return char === tokenType.COMMAS;
         };
 
         return Parser;
@@ -630,11 +655,11 @@ var Token = (function () {
     };
 
     Token.prototype.setQualifier = function (type, qualifier) {
-        if(!qualifier) {
+        if (!qualifier) {
             return;
         }
 
-        type = type || '';
+        type = type || '';
         this.qualifier.type = type;
         // on peut chainer les classes pour préciser
         this.qualifier.value = qualifier.split('.');
@@ -663,7 +688,7 @@ var Token = (function () {
     return Token;
 })();
 
-function cssAst (css) {
+function cssAst(css) {
 
     // pour enlever les blancs consécutifs type ' > '
     var regBlanks = /\s*([+~> ,])\s*/g;
@@ -710,7 +735,7 @@ function cssAst (css) {
             // selectorInfos[4] = attribute
             // selectorInfos[5] = attribute value
             // selectorInfos[6] = pseudo-element
-            if(selectorInfos[3]){
+            if (selectorInfos[3]) {
                 token.tag = selectorInfos[1];
                 token.setQualifier(selectorInfos[2], selectorInfos[3]);
             } else {
@@ -744,7 +769,7 @@ function cssAst (css) {
         // selectorInfos[4] = attribute
         // selectorInfos[5] = attribute value
         // selectorInfos[6] = pseudo-element
-        if(selectorInfos[3]){
+        if (selectorInfos[3]) {
             token.tag = selectorInfos[1];
             token.setQualifier(selectorInfos[2], selectorInfos[3]);
         } else {
@@ -778,7 +803,7 @@ Array.prototype.deduplicate = (
     Array.prototype.deduplicate
     || function () {
         return this.reduce(function (acc, el) {
-            if(acc.indexOf(el) === -1){
+            if (acc.indexOf(el) === -1) {
                 acc.push(el);
             }
             return acc;
@@ -786,18 +811,18 @@ Array.prototype.deduplicate = (
     }
 );
 
-function restrict(node, vnesting, hnesting){
-    vnesting = vnesting || -1;
-    hnesting = hnesting || -1;
+function restrict(node, vnesting, hnesting) {
+    vnesting = vnesting || -1;
+    hnesting = hnesting || -1;
 
     var nodes;
     var roots = 0;
 
-    if(hnesting !== 0) {
+    if (hnesting !== 0) {
         nodes = [];
         var next = node;
-        while((next = next.nextSibling) && hnesting) {
-            if(next instanceof HTMLElement){
+        while ((next = next.nextSibling) && hnesting) {
+            if (next instanceof HTMLElement) {
                 --hnesting;
                 nodes.push(next);
             }
@@ -807,11 +832,11 @@ function restrict(node, vnesting, hnesting){
         roots = 1;
     }
 
-    for(var i = 0; i < nodes.length && vnesting--; i++){
+    for (var i = 0; i < nodes.length && vnesting--; i++) {
         console.log(nodes, i);
         nodes.concat(nodes[i].childNodes);
     }
-    nodes = roots && nodes.slice(roots) || nodes;
+    nodes = roots && nodes.slice(roots) || nodes;
 
     // deduplicate
     return nodes.deduplicate();
@@ -821,12 +846,12 @@ function restrict(node, vnesting, hnesting){
  * @param {HTMLElement[]} nodes
  * @param {RegExp|string} search
  */
-function getEltsByClass(nodes, search){
+function getEltsByClass(nodes, search) {
 
-    if(typeof search === 'string'){
+    if (typeof search === 'string') {
         search = new RegExp(search);
     }
-    if(! search instanceof RegExp){
+    if (!search instanceof RegExp) {
         return [];
     }
 
@@ -839,11 +864,11 @@ function getEltsByClass(nodes, search){
  * @param {HTMLElement[]} nodes
  * @param {RegExp|string} search
  */
-function getEltsByTag(nodes, search){
-    if(typeof search === 'string'){
+function getEltsByTag(nodes, search) {
+    if (typeof search === 'string') {
         search = new RegExp(search);
     }
-    if(! search instanceof RegExp){
+    if (!search instanceof RegExp) {
         return [];
     }
 
@@ -856,11 +881,11 @@ function getEltsByTag(nodes, search){
  * @param {HTMLElement[]} nodes
  * @param {RegExp|string} search
  */
-function getEltsById(nodes, search){
-    if(typeof search === 'string'){
+function getEltsById(nodes, search) {
+    if (typeof search === 'string') {
         search = new RegExp(search);
     }
-    if(! search instanceof RegExp){
+    if (!search instanceof RegExp) {
         return [];
     }
 
@@ -873,14 +898,14 @@ function getEltsById(nodes, search){
  * @param {HTMLElement[]} nodes
  * @param {RegExp|string} search
  */
-function getEltsByAttr(nodes, search , value){
-    if(typeof search === 'string'){
+function getEltsByAttr(nodes, search, value) {
+    if (typeof search === 'string') {
         search = new RegExp(search);
     }
-    if(typeof value === 'string'){
+    if (typeof value === 'string') {
         value = new RegExp(value);
     }
-    if(! search instanceof RegExp){
+    if (!search instanceof RegExp) {
         return [];
     }
 
@@ -890,10 +915,10 @@ function getEltsByAttr(nodes, search , value){
             /**
              * @var {Attr} attribute
              */
-            if(! attribute.name.match(search)){
+            if (!attribute.name.match(search)) {
                 return false;
             }
-            if(value && ! attribute.value.match(value)){
+            if (value && !attribute.value.match(value)) {
                 return false;
             }
 
@@ -910,7 +935,7 @@ function getEltsByAttr(nodes, search , value){
  */
 function getPseudoSelector(nodes, selector) {
 
-    if(!nodes.length){
+    if (!nodes.length) {
         return nodes;
     }
 
@@ -923,15 +948,15 @@ function getPseudoSelector(nodes, selector) {
             break;
         default:
             var desc;
-            if(desc = selector.match(/^nth-child\((\d+)\)$/)){
-                return nodes[desc[1]] || [];
+            if (desc = selector.match(/^nth-child\((\d+)\)$/)) {
+                return nodes[desc[1]] || [];
             }
     }
 
     // fallback to HTMLElement props
     var node = nodes[0];
     selector = toCamelCase(selector);
-    if(selector in node){
+    if (selector in node) {
         return node[selector];
     }
 
@@ -944,12 +969,12 @@ function getPseudoSelector(nodes, selector) {
  * @param {HTMLElement[]} nodes
  */
 function findToken(token, nodes) {
-    if(token.haveTag()) {
+    if (token.haveTag()) {
         nodes = getEltsByTag(nodes, token.tag);
     }
 
-    if(token.haveQualifier()){
-        switch (token.qualifier.type){
+    if (token.haveQualifier()) {
+        switch (token.qualifier.type) {
             case '.':
                 nodes = getEltsByClass(nodes, token.qualifier.value[0]);
                 break;
@@ -964,17 +989,17 @@ function findToken(token, nodes) {
         }, nodes);
     }
 
-    if(token.haveAttribute()){
+    if (token.haveAttribute()) {
         nodes = getEltsByAttr(nodes, token.attribute.name, token.attribute.value);
     }
 
-    if(token.havePseudo()){
+    if (token.havePseudo()) {
         nodes = getPseudoSelector(nodes, token.pseudo);
     }
 
-    if(token.haveCombinator()){
+    if (token.haveCombinator()) {
         var vnesting = void 0, hnesting = void 0;
-        switch (token.combinator.type){
+        switch (token.combinator.type) {
             case '+':
                 hnesting = 1;
                 break;
@@ -1046,12 +1071,12 @@ function buildHyperNode(node) {
         // attributes
         if (attribute === 'className') {
             attribute = 'class';
-            if(Array.isArray(value)){
+            if (Array.isArray(value)) {
                 value = value.join(' ');
             }
-            if(typeof value === 'object'){
+            if (typeof value === 'object') {
                 value = Object.keys(value).reduce(function (acc, cls) {
-                    if(value[cls]) {
+                    if (value[cls]) {
                         acc.push(cls);
                     }
                     return acc;
@@ -1076,9 +1101,9 @@ function buildHyperNode(node) {
  * @param arr
  * @returns Array
  */
-function toPlainArray(arr){
+function toPlainArray(arr) {
     return arr.reduce(function (plain, entry) {
-        if(Array.isArray(entry)){
+        if (Array.isArray(entry)) {
             plain = plain.concat(toPlainArray(entry));
         } else {
             plain.push(entry);
@@ -1094,8 +1119,8 @@ function toPlainArray(arr){
  */
 function h(nodeName, attrs) {
     var childs = toPlainArray(Array.prototype.slice.call(arguments, 2));
-    var node = buildHyperNode(document.createElement(nodeName || 'div'));
-    Object.keys(attrs || {}).forEach(function (attribute) {
+    var node = buildHyperNode(document.createElement(nodeName || 'div'));
+    Object.keys(attrs || {}).forEach(function (attribute) {
         node.setAttribute(attribute, attrs[attribute]);
     });
     childs.forEach(function (child) {
@@ -1105,7 +1130,7 @@ function h(nodeName, attrs) {
     return node;
 }
 
-function $(selector, context){
-    context = context || document;
+function $(selector, context) {
+    context = context || document;
     return findAst(cssAst(selector), context);
 }
