@@ -1,4 +1,14 @@
+/**
+ * Helper to create dom node
+ */
 var h = (function(){
+
+    var vnodeUid = 0,
+        paramArr = [],
+        paramObj = {},
+        p, pcs, cls, name, node, id,
+        parent = HTMLElement.prototype,
+        dataSupport = 'dataset' in parent;
 
     function setData(data, value) {
         if (dataSupport) {
@@ -22,14 +32,6 @@ var h = (function(){
     function getContext(key, defaut) {
         return this.dict[key] || defaut;
     }
-
-    var vnodeUid = 0,
-        paramArr = [],
-        paramObj = {},
-        p, pcs, cls, name, node, id,
-        parent = HTMLElement.prototype,
-        dataSupport = 'dataset' in parent,
-        classListSupport = 'classList' in parent;
 
     /**
      * hyperscript (jsx) helper function to write dom manipulations
@@ -103,3 +105,14 @@ var h = (function(){
     return h;
 })();
 
+/**
+ * helper to create 'component' like groups of dom nodes
+ * @param {Function} component the component to render
+ * @param {Object|undefined} props arguments for the component
+ * @param {HTMLElement[]|undefined} childs
+ */
+function H(component, props, childs){
+    return props = props || {},
+        props.children = childs || [],
+        component(props);
+}
