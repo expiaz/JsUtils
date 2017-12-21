@@ -1,3 +1,7 @@
+/**
+ * ARRAYS
+ */
+
 Array.prototype.deduplicate = (
     Array.prototype.deduplicate
     || function () {
@@ -50,6 +54,18 @@ Array.prototype.apply = (
     }
 );
 
+Array.isArray = (
+    Array.isArray
+    || function (arr) {
+        return arr && arr.constructor.prototype === Array.prototype;
+    }
+);
+
+
+/**
+ * STRINGS
+ */
+
 String.prototype.toCamelCase = (
     String.prototype.toCamelCase
     || function () {
@@ -73,6 +89,20 @@ String.prototype.toKebabCase = (
     }
 );
 
+String.prototype.toArray = (
+    String.prototype.toArray
+    || function (){
+        var ret = [];
+        for(var i = 0; i < this.length; i++) ret.push(this[i]);
+        return ret;
+    }
+);
+
+
+/**
+ * OBJECTS
+ */
+
 Object.prototype.hasOwnProperty = (
     Object.prototype.hasOwnProperty
     || function (prop) {
@@ -94,12 +124,62 @@ Object.defineProperties = (
     }
 );
 
-Array.isArray = (
-    Array.isArray
-    || function (arr) {
-        return arr && arr.constructor.prototype === Array.prototype;
+Object.prototype.forEach = (
+    Object.prototype.forEach
+    || function (callback) {
+        for(var p in this) {
+            if(this.hasOwnProperty(p)) {
+                callback(p, this[p]);
+            }
+        }
     }
 );
+
+Object.prototype.reduce = (
+    Object.prototype.reduce
+    || function (callback, initial) {
+        this.forEach(function (key, value) {
+            initial = callback(initial, key, value);
+        });
+        return initial;
+    }
+);
+
+Object.prototype.clone = (
+    Object.prototype.clone
+    || function (deep) {
+        deep = !!deep;
+        var self = this;
+        return Object.create(
+            self.__proto__,
+            Object.keys(self).reduce(function (descriptor, property) {
+                descriptor[property] = {
+                    enumerable: true,
+                    writable: true,
+                    value: deep && typeof self[property] === "object" ? self[property].clone() : self[property]
+                };
+                return descriptor;
+            }, {})
+        );
+    }
+);
+
+Object.prototype.assign = (
+    Object.prototype.assign
+    || function () {
+        return Array.prototype.reduce.call(arguments, function (to, from) {
+            from.forEach(function (attribute, value) {
+                to[attribute] = value;
+            });
+            return to;
+        }, this.clone());
+    }
+);
+
+
+/**
+ * ELEMENTS
+ */
 
 HTMLElement.prototype.addNodeBefore = (
     HTMLElement.prototype.addNodeBefore
@@ -133,6 +213,11 @@ HTMLElement.prototype.replaceWith = (
     }
 );
 
+
+/**
+ * FUNCTIONS
+ */
+
 /**
  * @param {number} delay the debouncing delay
  * @return {Function} the debounced function
@@ -141,7 +226,6 @@ Function.prototype.debounce = (
     Function.prototype.debounce
     || function(delay) {
         var self = this;
-
         return (function () {
             var w8 = void 0;
             function debounce_wrapper() {
